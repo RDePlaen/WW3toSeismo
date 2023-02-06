@@ -1,0 +1,27 @@
+params:
+  station : "UCC"
+  station_lat : 50.797
+  station_lon : 4.36
+  rhos : 2600.0 # kg/m³
+  beta : 2800.0 # m/s
+  Rg : 1800.0 # m/s
+  Q : 300.0 #Raph set more than one Q value in list
+  Re : 4.0e7/(2*np.pi) # earth radius in m 
+  work_dir : "/home/raph/WORK/WAVEWATCH/WW3toSeismo"
+
+files:
+  noise_source_term : ! "{params.work_dir}/DATA/Rayleigh_source.txt"
+  distance_file : ! "/home/raph/WORK/WAVEWATCH/distance_to_{params.station}.csv"
+  depth : ! "{params.work_dir}/DATA/ww3.GLOB-30M_dpt.nc"
+  p2l_ref : ""
+  p2l_noref : ""
+  p2l_dir : "/home/raph/WORK/SEISMOSTORM/2021/FIELD_NC/"
+  
+download:
+  sismo_path : "ifremer/ww3/PROJECT/SISMO/" 
+  year : 2021 # one year at the time for now
+  months : [10]
+  p2l_save : "/home/raph/WORK/WAVEWATCH/P2L" # Local save Directory  
+  
+  
+  
