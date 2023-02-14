@@ -14,11 +14,11 @@ params:
 
 files:
   noise_source_term : ! "{params.work_dir}/DATA/Rayleigh_source.txt"
-  distance_file : ! "/home/raph/WORK/WAVEWATCH/distance_to_{params.station}.csv"
+  distance_file : ! "{params.work_dir}/DATA/distance_to_{params.station}.csv"
   depth : ! "{params.work_dir}/DATA/ww3.GLOB-30M_dpt.nc"
   p2l_ref : ""
   p2l_noref : ""
-  p2l_dir : "/home/raph/WORK/SEISMOSTORM/2021/FIELD_NC/"
+  p2l_dir : ! "{params.work_dir}/DATA/P2L/2021/FIELD_NC/"
   
 download:
   sismo_path : "ifremer/ww3/PROJECT/SISMO/" 

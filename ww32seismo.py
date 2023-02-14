@@ -63,7 +63,7 @@ def download_p2l():
                 ftp_server.retrbinary('RETR {}'.format(p2l),open(fpath, 'wb').write)
     ftp_server.quit()
     
-def plot_spec(dfF_fs, station):
+def plot_spec(dfF_fs, station, Q):
     """
     Plots the spectrogram for the station if the corresponding dataframe if already available
     """
@@ -87,7 +87,7 @@ def plot_spec(dfF_fs, station):
     plt.yscale('log')
     fig.autofmt_xdate()
 #    plt.ylim(0.1,ymax)
-    plt.title(station)
+    plt.title("{}, Q = {}".format(station,int(Q)))
     plt.show()
 
 def plot_rms(dfF_fs, station):
