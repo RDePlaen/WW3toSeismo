@@ -65,7 +65,7 @@ def download_p2l():
     
 def plot_spec(dfF_fs, station):
     """
-    Plots the spectroram for the station if the corresponding dataframe if already available
+    Plots the spectrogram for the station if the corresponding dataframe if already available
     """
     plt.rcParams['figure.figsize'] = (16,6)
     plt.rcParams['axes.facecolor'] = "w"
@@ -224,9 +224,24 @@ def alpha_distance(configs,Re, distance_df):
     return factor1,alpha, alpha2
 
 def get_ww3(configs, Q, month, lats, lons, Re, dpt, Cf, distance_df, plot=False):
+    """
+    Computes synthetic seismic spectra at the station in configs.yml
+    :param configs: configuration instance
+    :param Q: attenuation
+    :param month: month of analysis
+    :param lats: 
+    :param lons: 
+    :param Re: Radius of the Earth in m
+    :param dpt: DataFrame of the bathymetry
+    :param Cf: 
+    :param distance_df: DataFrame of teh distance to the station in configs.yml
+    :param plot: BOOL to plot the amplification map
+    :return: dfF_fs, the synthetic seismic spectra at the station
+    """
     beta = configs.params.beta
     CgR = configs.params.Rg
     target = configs.params.station
+    P = configs.params.P
     factor1, alpha, alpha2 = alpha_distance(configs,Re, distance_df)
     fn = os.path.join(configs.files.p2l_dir,"LOPS_WW3-GLOB-30M_2021{}_p2l.nc".format(month))
     fname = r"{}".format(fn)
@@ -236,7 +251,8 @@ def get_ww3(configs, Q, month, lats, lons, Re, dpt, Cf, distance_df, plot=False)
     times = dataset.variables['time']
     times = netCDF4.num2date(times[:],times.units)
     freqs = dataset.variables['f'][:] # ocean wave frequency
-    Qf = np.ones(len(freqs)) * Q
+    #Qf = np.ones(len(freqs)) * Q
+    Qf = (0.4+0.4*(1-np.tanh(15*(2*freqs-0.14))))*Q # from IFREMER matlab code "seismic_calculation_synthetic_settings.m"
 
     F_fs = {}
     try:
@@ -246,15 +262,19 @@ def get_ww3(configs, Q, month, lats, lons, Re, dpt, Cf, distance_df, plot=False)
     lats = lats[lats<=80]
     nx = len(lons)
     ny = len(lats)
+    ## Elementary surface
     dlon=(lons[-1]-lons[0])/(nx-1)## RAPH find the other coordinates to use here
     dlat=(lats[-1]-lats[0])/(ny-1)
     coslat = numpy.matlib.repmat(np.cos(np.deg2rad(lats)),len(lons),1).T
-    dA=Re**2.*coslat*(dlon*dlat*(np.pi/180)**2)
-
-    for ti, t in enumerate(times):
+    dA=Re**2.*coslat*(dlon*dlat*(np.pi/180)**2) # Area of surface element
+    
+    pbar = tqdm.tqdm(times, desc="Processing %s" % times[0])
+#    for p2l in pbar:       
+    for ti, t in enumerate(pbar):
         if t in F_fs:
             continue
-        print("Processing %s" % t)
+        pbar.set_description("Processing %s" % t)
+#        print("Processing %s" % t)
         if "coeff_all" not in locals():
             print("First time step: Computing attenuation (Q = {}) & amplification".format(int(Q)))
             omega=(2.0*np.pi)*freqs*2  # seismic radian frequency omega=2*2*pi/T
@@ -275,6 +295,7 @@ def get_ww3(configs, Q, month, lats, lons, Re, dpt, Cf, distance_df, plot=False)
         source = coeff_all * P2f[:,:-6,:]
         source = np.reshape(source, (nf, nx*ny))
         F_fs[t] = source.sum(axis=1)
+
     if plot:
         plot_surfarea(lons,lats,dA, Re)
         plt.figure(figsize=(18,8))
@@ -291,7 +312,7 @@ def get_ww3(configs, Q, month, lats, lons, Re, dpt, Cf, distance_df, plot=False)
     dfF_fs_index
     dfF_fs.columns = pd.DatetimeIndex(pd.DatetimeIndex(dfF_fs_index))
     dfF_fs = dfF_fs.sort_index()
-    dfF_fs.to_pickle("DATA/{}_Q{}.pkl".format(target, int(Q)))
+    dfF_fs.to_pickle("DATA/Q/{}_Q{}.pkl".format(target, int(Q)))
     return dfF_fs
 
 def read_p2ls(year, months, p2l_dir):
@@ -315,3 +336,44 @@ def read_p2ls(year, months, p2l_dir):
     print("Done reading the P2L file(s)")
     return times, p2ls, lats, lons
 
+
+
+def get_corr(O, M):
+    correlation = (((O-O.mean())*(M-M.mean())).sum())/(np.sqrt(((O-O.mean())**2).sum())*np.sqrt(((M-M.mean())**2).sum()))
+    return correlation
+def get_misfit(O, M):
+    misfit = np.sum(abs(O-M)/abs(O).values)/len(O)
+    return misfit
+
+def dfrms(a):
+    return np.sqrt(np.trapz(a.values, a.index))
+
+def df_rms(d, freqs, output="DISP"):
+    d = d.dropna(axis=1, how='all')
+    RMS = {}
+    for fmin, fmax in freqs:
+        
+        ix = np.where((d.columns>=fmin) & (d.columns<=fmax))[0]
+        spec = d.iloc[:,ix]
+        f = d.columns[ix]
+        
+        w2f = (2.0 * np.pi * f)
+
+        # The acceleration power spectrum (dB to Power! = divide by 10 and not 20!)
+        amp = 10.0**(spec/10.) 
+        if output == "ACC":
+            RMS["%.1f-%.1f"%(fmin, fmax)] = amp.apply(dfrms, axis=1)
+            continue
+        
+        # velocity power spectrum (divide by omega**2)
+        vamp = amp / w2f**2
+        if output == "VEL":
+            RMS["%.1f-%.1f"%(fmin, fmax)] = vamp.apply(dfrms, axis=1)
+            continue
+                
+        # displacement power spectrum (divide by omega**2)
+        damp = vamp / w2f**2
+       
+        RMS["%.1f-%.1f"%(fmin, fmax)] = damp.apply(dfrms, axis=1)
+
+    return pd.DataFrame(RMS, index=d.index)

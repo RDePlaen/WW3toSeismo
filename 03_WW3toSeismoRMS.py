@@ -1,5 +1,4 @@
 import os
-
 import matplotlib.pyplot as plt
 from scipy import interpolate
 import warnings
@@ -17,7 +16,6 @@ def main(loglevel="INFO", show = False, outfile=True):
     parser.add_argument('--Q', help = "List of Q values to compute separated with commas, without space")
     args = parser.parse_args(sys.argv[1:])
     Qs = args.Q
-#    print(Qs)#TODO test if the Q input is a list
     logger = logbook.Logger("ww3")
     logger.info('*** Starting: Extracting spectra from P2L ***')
     # Import configurations and Settings
@@ -32,7 +30,7 @@ def main(loglevel="INFO", show = False, outfile=True):
     if not Qs:
         Qs = [configs.params.Q]
     else:
-        Qs = [float(Qi) for Qi in Qs.split(',')]
+        Qs = [int(Qi) for Qi in Qs.split(',')]
     Re = 4.0e7/(2*np.pi)
     depth_file = configs.files.depth
     #  needed files: Rayleigh_source.txt, depth file, and 2 models with and without reflection /!\
